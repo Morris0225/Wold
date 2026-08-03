@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎴 單字複習卡</title>
+  <style>
+    :root { --primary: #4f46e5; --bg: #f3f4f6; --card-bg: #ffffff; --text: #1f2937; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; }
+    .container { width: 100%; max-width: 500px; }
+    
+    .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .nav-btn { background: #374151; color: white; padding: 8px 14px; text-decoration: none; border-radius: 8px; font-size: 0.9rem; font-weight: 600; }
+    
+    .card-box { background: var(--card-bg); padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    select { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; }
+
+    /* 3D 翻牌動畫 */
+    .flashcard-wrapper { height: 260px; perspective: 1000px; cursor: pointer; margin-bottom: 20px; }
+    .flashcard { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+    .flashcard.flipped { transform: rotateY(180deg); }
+    .face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; border: 1px solid #e5e7eb; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }
+    .face-back { transform: rotateY(180deg); background: #eef2ff; color: var(--primary); border-color: #c7d2fe; }
+    .word-text { font-size: 2.5rem; font-weight: bold; margin-bottom: 8px; }
+    .trans-text { font-size: 2.2rem; font-weight: bold; }
+    .badge { font-size: 0.85rem; background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 20px; margin-top: 10px; }
+    
+    .btn-group { display: flex; gap: 12px; justify-content: center; }
+    button { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1rem; }
+    button.secondary { background: #e5e7eb; color: #374151; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="nav-bar">
+    <h2>🎴 單字複習卡</h2>
+    <!-- 切換至管理頁面的按鈕 -->
+    <a href="/admin" class="nav-btn">⚙️ 管理單字頁面 →</a>
+  </div>
+
+  <div class="card-box">
+    <div class="controls">
+      <div>
+        <label>分類：</label>
+        <select id="filterCategory" onchange="loadWords()">
+          <option value="ALL">全部分類</option>
+        </select>
+      </div>
+      <span id="progressText" style="color: #6b7280; font-weight: 600;">0 / 0</span>
+    </div>
+
+    <div class="flashcard-wrapper" id="cardWrapper">
+      <div class="flashcard" id="card">
+        <div class="face face-front">
+          <div class="word-text" id="cardWord">載入中...</div>
+          <div class="badge" id="cardCat">-</div>
+        </div>
+        <div class="face face-back">
+          <div class="trans-text" id="cardTrans">...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-group">
+      <button class="secondary" onclick="prevCard()">← 上一張</button>
+      <button onclick="nextCard()">下一張 →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let words = [];
+  let currentIndex = 0;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadCategories();
+    loadWords();
+  });
+
+  async function loadCategories() {
+    const res = await fetch('/api/categories');
+    const categories = await res.json();
+    const filterSelect = document.getElementById('filterCategory');
+    filterSelect.innerHTML = '<option value="ALL">全部分類</option>';
+    categories.forEach(cat => filterSelect.innerHTML += `<option value="${cat}">${cat}</option>`);
+  }
+
+  async function loadWords() {
+    const selectedCat = document.getElementById('filterCategory').value;
+    const res = await fetch(`/api/words?category=${encodeURIComponent(selectedCat)}`);
+    words = await res.json();
+    currentIndex = 0;
+    renderCard();
+  }
+
+  function renderCard() {
+    const card = document.getElementById('card');
+    card.classList.remove('flipped');
+
+    if (words.length === 0) {
+      document.getElementById('cardWord').textContent = "尚無單字";
+      document.getElementById('cardTrans').textContent = "請點擊右上角前往管理頁新增";
+      document.getElementById('cardCat').textContent = "-";
+      document.getElementById('progressText').textContent = "0 / 0";
+      return;
+    }
+
+    const current = words[currentIndex];
+    document.getElementById('cardWord').textContent = current.word;
+    document.getElementById('cardTrans').textContent = current.translation;
+    document.getElementById('cardCat').textContent = current.category;
+    document.getElementById('progressText').textContent = `${currentIndex + 1} / ${words.length}`;
+  }
+
+  document.getElementById('cardWrapper').addEventListener('click', () => {
+    document.getElementById('card').classList.toggle('flipped');
+  });
+
+  function nextCard() {
+    if (words.length > 0) {
+      currentIndex = (currentIndex + 1) % words.length;
+      renderCard();
+    }
+  }
+
+  function prevCard() {
+    if (words.length > 0) {
+      currentIndex = (currentIndex - 1 + words.length) % words.length;
+      renderCard();
+    }
+  }
+</script>
+</body>
+</html>
