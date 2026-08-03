@@ -18,10 +18,13 @@
     .input-row { display: flex; gap: 10px; }
     input, select { flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; }
     button { background: #10b981; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem; }
+    button.import-btn { background: #6366f1; }
     
     .word-list { list-style: none; margin-top: 10px; }
     .word-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
     .del-btn { background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+    
+    .file-hint { font-size: 0.85rem; color: #6b7280; background: #f9fafb; padding: 10px; border-radius: 6px; margin-bottom: 10px; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -32,21 +35,39 @@
     <a href="/" class="nav-btn">🎴 回到複習卡片 →</a>
   </div>
 
-  <!-- 新增單字表單 -->
+  <!-- 📥 批次匯入單字區塊 -->
   <div class="card-box">
-    <h3>➕ 新增單字</h3>
+    <h3>📥 批次匯入單字 (.txt / .csv)</h3>
+    <div class="file-hint">
+      💡 格式說明：每行一個單字，英文與中文用<strong>逗號</strong>隔開。<br>
+      例如：<code>Apple, 蘋果</code> 或 <code>Cat, 貓咪</code>
+    </div>
+    <form id="importForm" class="form-group">
+      <div class="input-row">
+        <select id="importSelectCat" onchange="toggleImportCatInput()">
+          <option value="NEW">➕ 建立新分類...</option>
+        </select>
+        <input type="text" id="importInCat" placeholder="請輸入匯入單字的分類名稱 (例: 多益)">
+      </div>
+      <input type="file" id="fileInput" accept=".txt,.csv" required style="border: 1px dashed #a5b4fc; padding: 15px; background: #eef2ff;">
+      <button type="submit" class="import-btn">開始批次匯入</button>
+    </form>
+  </div>
+
+  <!-- ➕ 單一新增單字 -->
+  <div class="card-box">
+    <h3>➕ 新增單一單字</h3>
     <form id="addForm" class="form-group">
       <div class="input-row">
         <input type="text" id="inWord" placeholder="英文單字 (例: Apple)" required>
         <input type="text" id="inTrans" placeholder="中文翻譯 (例: 蘋果)" required>
       </div>
 
-      <!-- 分類選擇區：選擇現有分類 或 輸入新分類 -->
       <div class="input-row">
         <select id="selectCat" onchange="toggleCatInput()">
-          <option value="NEW">+ 輸入新分類...</option>
+          <option value="NEW">➕ 建立新分類...</option>
         </select>
-        <input type="text" id="inCat" placeholder="請輸入新分類名稱 (例: 多益)">
+        <input type="text" id="inCat" placeholder="請輸入新分類名稱">
       </div>
 
       <button type="submit">儲存單字</button>
@@ -66,41 +87,37 @@
     loadWords();
   });
 
-  // 1. 載入資料庫內所有已存在的分類
   async function loadCategories() {
     const res = await fetch('/api/categories');
     const categories = await res.json();
+    
+    // 更新單一新增選單
     const selectCat = document.getElementById('selectCat');
-    
-    // 清空並重新建立選項
-    selectCat.innerHTML = '';
-    
-    // 將資料庫裡的每一個分類都放進選單
-    categories.forEach(cat => {
-      selectCat.innerHTML += `<option value="${cat}">${cat}</option>`;
-    });
-    
-    // 預留一個選項供「新增新分類」
+    selectCat.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
     selectCat.innerHTML += `<option value="NEW">➕ 建立新分類...</option>`;
-    
     toggleCatInput();
+
+    // 更新批次匯入選單
+    const importSelectCat = document.getElementById('importSelectCat');
+    importSelectCat.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+    importSelectCat.innerHTML += `<option value="NEW">➕ 建立新分類...</option>`;
+    toggleImportCatInput();
   }
 
-  // 切換「輸入框」的顯示狀態
   function toggleCatInput() {
     const selectCat = document.getElementById('selectCat');
     const inCat = document.getElementById('inCat');
-    
-    if (selectCat.value === 'NEW') {
-      inCat.style.display = 'block';
-      inCat.required = true;
-    } else {
-      inCat.style.display = 'none';
-      inCat.required = false;
-    }
+    inCat.style.display = selectCat.value === 'NEW' ? 'block' : 'none';
+    inCat.required = selectCat.value === 'NEW';
   }
 
-  // 2. 載入單字列表
+  function toggleImportCatInput() {
+    const selectCat = document.getElementById('importSelectCat');
+    const inCat = document.getElementById('importInCat');
+    inCat.style.display = selectCat.value === 'NEW' ? 'block' : 'none';
+    inCat.required = selectCat.value === 'NEW';
+  }
+
   async function loadWords() {
     const res = await fetch('/api/words?category=ALL');
     const words = await res.json();
@@ -122,16 +139,13 @@
     `).join('');
   }
 
-  // 3. 送出表單
+  // 單一新增提交
   document.getElementById('addForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const word = document.getElementById('inWord').value;
     const translation = document.getElementById('inTrans').value;
-    
     const selectCat = document.getElementById('selectCat');
     const inCat = document.getElementById('inCat');
-
-    // 如果選「建立新分類」就拿輸入框的值，否則拿選單選好的分類
     let category = selectCat.value === 'NEW' ? inCat.value : selectCat.value;
 
     const res = await fetch('/api/words', {
@@ -144,10 +158,39 @@
       document.getElementById('inWord').value = '';
       document.getElementById('inTrans').value = '';
       inCat.value = '';
-      
-      // 重新整理分類選單與單字列表
       await loadCategories();
       await loadWords();
+    }
+  });
+
+  // 📥 批次匯入提交
+  document.getElementById('importForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fileInput = document.getElementById('fileInput');
+    const selectCat = document.getElementById('importSelectCat');
+    const inCat = document.getElementById('importInCat');
+    let category = selectCat.value === 'NEW' ? inCat.value : selectCat.value;
+
+    if (!fileInput.files.length) return alert('請選擇檔案！');
+
+    const file = fileInput.files[0];
+    const text = await file.text();
+
+    const res = await fetch('/api/words/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text_content: text, category: category })
+    });
+
+    const result = await res.json();
+    if (res.ok) {
+      alert(`🎉 成功匯入 ${result.count} 個單字！`);
+      fileInput.value = '';
+      inCat.value = '';
+      await loadCategories();
+      await loadWords();
+    } else {
+      alert('匯入失敗，請確認檔案內容格式。');
     }
   });
 
