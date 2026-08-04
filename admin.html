@@ -201,6 +201,30 @@
       await loadWords();
     }
   }
+
+  const firebaseConfig = {
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBFQA1RF9HK0V9OHwsEuFCT5qmGicFmsck",
+  authDomain: "my-word-card.firebaseapp.com",
+  projectId: "my-word-card",
+  storageBucket: "my-word-card.firebasestorage.app",
+  messagingSenderId: "495321698729",
+  appId: "1:495321698729:web:14939264ad32ad297034b8",
+  measurementId: "G-4YPWJVZZV1"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+};
 </script>
 </body>
 </html>
