@@ -18,6 +18,10 @@
     .control-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
     select { flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; }
 
+    /* 按鈕樣式 */
+    .shuffle-btn { background: #8b5cf6; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; gap: 4px; }
+    .shuffle-btn:hover { background: #7c3aed; }
+
     /* 3D 翻牌與直接顯示動畫 */
     .flashcard-wrapper { height: 260px; perspective: 1000px; cursor: pointer; margin-bottom: 20px; }
     .flashcard { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -31,7 +35,7 @@
     .hint-text { font-size: 0.8rem; color: #9ca3af; margin-top: 10px; }
     
     .btn-group { display: flex; gap: 12px; justify-content: center; }
-    button { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1rem; }
+    button.nav-control { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1rem; }
     button.secondary { background: #e5e7eb; color: #374151; }
   </style>
 
@@ -85,7 +89,20 @@
 
     window.filterWords = function() {
       const selectedCat = document.getElementById('filterCategory').value;
-      currentWords = selectedCat === 'ALL' ? allWords : allWords.filter(w => w.category === selectedCat);
+      currentWords = selectedCat === 'ALL' ? [...allWords] : allWords.filter(w => w.category === selectedCat);
+      currentIndex = 0;
+      renderCard();
+    }
+
+    // 🎲 隨機洗牌演算法 (Fisher-Yates Shuffle)
+    window.shuffleWords = function() {
+      if (currentWords.length <= 1) return;
+
+      for (let i = currentWords.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [currentWords[i], currentWords[j]] = [currentWords[j], currentWords[i]];
+      }
+
       currentIndex = 0;
       renderCard();
     }
@@ -114,11 +131,10 @@
       const bothTransEl = document.getElementById('bothTrans');
       const hintEl = document.getElementById('cardHint');
 
-      // 判斷顯示模式
       if (mode === 'BOTH') {
         bothTransEl.textContent = current.translation;
         bothTransEl.style.display = "block";
-        hintEl.style.display = "none"; // 直顯模式下隱藏點擊提示
+        hintEl.style.display = "none";
       } else {
         bothTransEl.style.display = "none";
         hintEl.style.display = "block";
@@ -127,7 +143,6 @@
 
     document.getElementById('cardWrapper').addEventListener('click', () => {
       const mode = document.getElementById('displayMode').value;
-      // 只有在「翻牌模式」下才可以翻牌
       if (currentWords.length > 0 && mode === 'FLIP') {
         document.getElementById('card').classList.toggle('flipped');
       }
@@ -168,12 +183,14 @@
           <option value="BOTH">📖 中英直接顯示模式</option>
         </select>
       </div>
-      <div style="text-align: right;">
+
+      <div class="control-row" style="margin-top: 5px;">
+        <button class="shuffle-btn" onclick="shuffleWords()">🎲 隨機打亂順序</button>
         <span id="progressText" style="color: #6b7280; font-weight: 600;">0 / 0</span>
       </div>
     </div>
 
-  <div class="flashcard-wrapper" id="cardWrapper">
+    <div class="flashcard-wrapper" id="cardWrapper">
       <div class="flashcard" id="card">
         <div class="face face-front">
           <div class="badge" id="cardCat">-</div>
@@ -188,8 +205,8 @@
     </div>
 
     <div class="btn-group">
-      <button class="secondary" onclick="prevCard()">← 上一張</button>
-      <button onclick="nextCard()">下一張 →</button>
+      <button class="nav-control secondary" onclick="prevCard()">← 上一張</button>
+      <button class="nav-control" onclick="nextCard()">下一張 →</button>
     </div>
   </div>
 </div>
