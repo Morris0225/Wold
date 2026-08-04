@@ -20,8 +20,13 @@
     button { background: #10b981; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem; }
     button.import-btn { background: #6366f1; }
     
+    .batch-actions { display: flex; justify-content: space-between; align-items: center; background: #f3f4f6; padding: 10px 15px; border-radius: 8px; margin-top: 10px; margin-bottom: 10px; }
+    .batch-actions label { font-size: 0.9rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .btn-danger { background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
+    
     .word-list { list-style: none; margin-top: 10px; }
-    .word-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
+    .word-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
+    .word-content { flex: 1; }
     .del-btn { background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
     
     .file-hint { font-size: 0.85rem; color: #6b7280; background: #f9fafb; padding: 10px; border-radius: 6px; margin-bottom: 10px; line-height: 1.5; }
@@ -29,7 +34,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBFQA1RF9HK0V9OHwsEuFCT5qmGicFmsck",
@@ -90,18 +95,48 @@
       const list = document.getElementById('wordList');
       if (words.length === 0) {
         list.innerHTML = '<li style="color:#9ca3af; text-align:center; padding:15px;">目前還沒有任何單字喔！</li>';
+        document.getElementById('selectAllCb').checked = false;
         return;
       }
 
       list.innerHTML = words.map(w => `
         <li class="word-item">
-          <div>
+          <input type="checkbox" class="word-checkbox" value="${w.id}">
+          <div class="word-content">
             <strong style="font-size:1.1rem;">${w.word}</strong> - <span style="color:#4b5563;">${w.translation}</span>
             <span style="font-size:0.8rem; background:#e0e7ff; color:#3730a3; padding:2px 8px; border-radius:10px; margin-left:6px;">${w.category || '預設'}</span>
           </div>
           <button class="del-btn" onclick="deleteWord('${w.id}')">刪除</button>
         </li>
       `).join('');
+
+      document.getElementById('selectAllCb').checked = false;
+    }
+
+    // 全選 / 取消全選
+    window.toggleSelectAll = function() {
+      const isChecked = document.getElementById('selectAllCb').checked;
+      const checkboxes = document.querySelectorAll('.word-checkbox');
+      checkboxes.forEach(cb => cb.checked = isChecked);
+    }
+
+    // 批量刪除勾選的單字
+    window.deleteSelectedWords = async function() {
+      const selected = Array.from(document.querySelectorAll('.word-checkbox:checked')).map(cb => cb.value);
+      if (selected.length === 0) {
+        alert('請先勾選要刪除的單字！');
+        return;
+      }
+
+      if (confirm(`確定要刪除選取的 ${selected.length} 個單字嗎？`)) {
+        const batch = writeBatch(db);
+        selected.forEach(id => {
+          batch.delete(doc(db, "words", id));
+        });
+        await batch.commit();
+        alert('🎉 批次刪除成功！');
+        await loadWords();
+      }
     }
 
     // 單一新增提交
@@ -137,7 +172,10 @@
       const text = await file.text();
       const lines = text.split(/\r?\n/);
 
+      let batch = writeBatch(db);
       let count = 0;
+      let batchCounter = 0;
+
       for (let line of lines) {
         line = line.trim();
         if (!line) continue;
@@ -148,11 +186,24 @@
           translation = parts[1] ? parts[1].trim() : '(未填寫)';
         }
         if (word) {
-          await addDoc(collection(db, "words"), {
+          const newDocRef = doc(collection(db, "words"));
+          batch.set(newDocRef, {
             word, translation, category: category || '預設', createdAt: serverTimestamp()
           });
           count++;
+          batchCounter++;
+
+          // Firestore 限制每組 batch 上限 500 筆，滿 400 筆自動 commit 一次
+          if (batchCounter >= 400) {
+            await batch.commit();
+            batch = writeBatch(db);
+            batchCounter = 0;
+          }
         }
+      }
+
+      if (batchCounter > 0) {
+        await batch.commit();
       }
 
       alert(`🎉 成功匯入 ${count} 個單字！`);
@@ -216,9 +267,17 @@
     </form>
   </div>
 
-  <!-- 單字列表 -->
+  <!-- 單字列表與批量刪除 -->
   <div class="card-box">
     <h3>📋 所有單字列表</h3>
+    
+    <div class="batch-actions">
+      <label>
+        <input type="checkbox" id="selectAllCb" onchange="toggleSelectAll()"> 全選所有單字
+      </label>
+      <button class="btn-danger" onclick="deleteSelectedWords()">🗑️ 刪除勾選單字</button>
+    </div>
+
     <ul class="word-list" id="wordList"></ul>
   </div>
 </div>
