@@ -2,43 +2,47 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>🎴 單字複習卡</title>
   <style>
     :root { --primary: #4f46e5; --bg: #f3f4f6; --card-bg: #ffffff; --text: #1f2937; }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
-    body { background-color: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 12px; display: flex; justify-content: center; min-height: 100vh; }
     .container { width: 100%; max-width: 500px; }
     
-    .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .nav-btn { background: #374151; color: white; padding: 8px 14px; text-decoration: none; border-radius: 8px; font-size: 0.9rem; font-weight: 600; }
+    .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .nav-bar h2 { font-size: 1.3rem; }
+    .nav-btn { background: #374151; color: white; padding: 6px 12px; text-decoration: none; border-radius: 8px; font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
     
-    .card-box { background: var(--card-bg); padding: 20px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-    .controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
-    .control-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-    select { flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; }
+    .card-box { background: var(--card-bg); padding: 16px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    .controls { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .control-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+    select { flex: 1; min-width: 130px; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.85rem; background: white; }
 
-    .shuffle-btn { background: #8b5cf6; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
-    .unfamiliar-toggle-btn { background: #f59e0b; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+    .btn-sub-row { display: flex; gap: 6px; width: 100%; align-items: center; justify-content: space-between; }
+    .shuffle-btn { background: #8b5cf6; color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem; flex: 1; text-align: center; }
+    .unfamiliar-toggle-btn { background: #f59e0b; color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem; flex: 1.2; text-align: center; }
     .unfamiliar-toggle-btn.is-active { background: #10b981; }
 
-    /* 3D 翻牌與卡片樣式 */
-    .flashcard-wrapper { height: 260px; perspective: 1000px; cursor: pointer; margin-bottom: 15px; }
+    /* 📱 手機優化 3D 翻牌卡片 */
+    .flashcard-wrapper { height: 240px; perspective: 1000px; cursor: pointer; margin-bottom: 12px; }
     .flashcard { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
     .flashcard.flipped { transform: rotateY(180deg); }
-    .face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; border: 1px solid #e5e7eb; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); padding: 15px; text-align: center; }
+    .face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; border: 1px solid #e5e7eb; box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.05); padding: 12px; text-align: center; overflow: hidden; }
     .face-back { transform: rotateY(180deg); background: #eef2ff; color: var(--primary); border-color: #c7d2fe; }
-    .word-text { font-size: 2.2rem; font-weight: bold; margin-bottom: 8px; color: #1e1b4b; }
-    .trans-text { font-size: 1.8rem; font-weight: bold; color: var(--primary); }
-    .both-trans { font-size: 1.5rem; font-weight: 600; color: #059669; margin-top: 10px; background: #ecfdf5; padding: 6px 16px; border-radius: 12px; }
     
-    .tags-container { display: flex; gap: 6px; margin-bottom: 10px; }
-    .badge { font-size: 0.85rem; background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 20px; }
+    /* 📱 自動適應長單字 */
+    .word-text { font-size: clamp(1.6rem, 6vw, 2.2rem); font-weight: bold; margin-bottom: 6px; color: #1e1b4b; word-break: break-word; line-height: 1.2; }
+    .trans-text { font-size: clamp(1.4rem, 5.5vw, 1.8rem); font-weight: bold; color: var(--primary); word-break: break-word; line-height: 1.2; }
+    .both-trans { font-size: clamp(1.1rem, 4.5vw, 1.4rem); font-weight: 600; color: #059669; margin-top: 8px; background: #ecfdf5; padding: 4px 12px; border-radius: 10px; word-break: break-word; }
+    
+    .tags-container { display: flex; gap: 4px; margin-bottom: 6px; flex-wrap: wrap; justify-content: center; }
+    .badge { font-size: 0.75rem; background: #e0e7ff; color: #3730a3; padding: 3px 10px; border-radius: 20px; }
     .badge-unfamiliar { background: #fef3c7; color: #d97706; font-weight: bold; }
-    .hint-text { font-size: 0.8rem; color: #9ca3af; margin-top: 10px; }
+    .hint-text { font-size: 0.75rem; color: #9ca3af; margin-top: 6px; }
     
-    .btn-group { display: flex; gap: 12px; justify-content: center; }
-    button.nav-control { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1rem; }
+    .btn-group { display: flex; gap: 10px; justify-content: center; }
+    button.nav-control { flex: 1; background: var(--primary); color: white; border: none; padding: 12px 10px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95rem; }
     button.secondary { background: #e5e7eb; color: #374151; }
   </style>
 
@@ -89,7 +93,7 @@
       
       filterSelect.innerHTML = categories.map(cat => {
         if (cat === 'ALL') return `<option value="ALL">📚 全部分類</option>`;
-        if (cat === 'UNFAMILIAR') return `<option value="UNFAMILIAR">🔥 不熟單字庫 (${allWords.filter(w=>w.isUnfamiliar).length})</option>`;
+        if (cat === 'UNFAMILIAR') return `<option value="UNFAMILIAR">🔥 不熟庫 (${allWords.filter(w=>w.isUnfamiliar).length})</option>`;
         return `<option value="${cat}">${cat}</option>`;
       }).join('');
 
@@ -124,14 +128,11 @@
       const current = currentWords[currentIndex];
       const newStatus = !current.isUnfamiliar;
       
-      // 本地即時更新
       current.isUnfamiliar = newStatus;
       const targetInAll = allWords.find(w => w.id === current.id);
       if (targetInAll) targetInAll.isUnfamiliar = newStatus;
 
-      // 雲端同步
       await updateDoc(doc(db, "words", current.id), { isUnfamiliar: newStatus });
-      
       updateCategories();
       renderCard();
     }
@@ -143,7 +144,7 @@
 
       if (currentWords.length === 0) {
         document.getElementById('cardWord').textContent = "尚無單字";
-        document.getElementById('cardTrans').textContent = "這個分類目前是空的喔！";
+        document.getElementById('cardTrans').textContent = "無單字";
         document.getElementById('cardCat').textContent = "-";
         document.getElementById('unfamiliarTag').style.display = "none";
         document.getElementById('bothTrans').style.display = "none";
@@ -159,18 +160,17 @@
       document.getElementById('cardCat').textContent = current.category || '預設';
       document.getElementById('progressText').textContent = `${currentIndex + 1} / ${currentWords.length}`;
 
-      // 不熟標籤與按鈕更新
       const unfamTag = document.getElementById('unfamiliarTag');
       const unfamBtn = document.getElementById('unfamiliarBtn');
       unfamBtn.style.display = "inline-block";
 
       if (current.isUnfamiliar) {
         unfamTag.style.display = "inline-block";
-        unfamBtn.textContent = "✅ 移出不熟區";
+        unfamBtn.textContent = "✅ 移出不熟";
         unfamBtn.classList.add('is-active');
       } else {
         unfamTag.style.display = "none";
-        unfamBtn.textContent = "🔥 標記為不熟";
+        unfamBtn.textContent = "🔥 標記不熟";
         unfamBtn.classList.remove('is-active');
       }
 
@@ -214,7 +214,7 @@
 <div class="container">
   <div class="nav-bar">
     <h2>🎴 單字複習卡</h2>
-    <a href="admin.html" class="nav-btn">⚙️ 管理單字頁面 →</a>
+    <a href="admin.html" class="nav-btn">⚙️ 管理頁面 →</a>
   </div>
 
   <div class="card-box">
@@ -225,15 +225,15 @@
         </select>
 
         <select id="displayMode" onchange="renderCard()">
-          <option value="FLIP">🎴 翻牌模式 (背單字)</option>
-          <option value="BOTH">📖 中英直接顯示模式</option>
+          <option value="FLIP">🎴 翻牌模式</option>
+          <option value="BOTH">📖 中英直顯</option>
         </select>
       </div>
 
-      <div class="control-row">
-        <button class="shuffle-btn" onclick="shuffleWords()">🎲 隨機打亂</button>
-        <button id="unfamiliarBtn" class="unfamiliar-toggle-btn" onclick="toggleUnfamiliar()">🔥 標記為不熟</button>
-        <span id="progressText" style="color: #6b7280; font-weight: 600;">0 / 0</span>
+      <div class="btn-sub-row">
+        <button class="shuffle-btn" onclick="shuffleWords()">🎲 打亂</button>
+        <button id="unfamiliarBtn" class="unfamiliar-toggle-btn" onclick="toggleUnfamiliar()">🔥 標記不熟</button>
+        <span id="progressText" style="color: #6b7280; font-weight: 600; font-size: 0.85rem; min-width: 45px; text-align: right;">0 / 0</span>
       </div>
     </div>
 
@@ -242,7 +242,7 @@
         <div class="face face-front">
           <div class="tags-container">
             <span class="badge" id="cardCat">-</span>
-            <span class="badge badge-unfamiliar" id="unfamiliarTag" style="display:none;">🔥 不熟單字</span>
+            <span class="badge badge-unfamiliar" id="unfamiliarTag" style="display:none;">🔥 不熟</span>
           </div>
           <div class="word-text" id="cardWord">載入中...</div>
           <div class="both-trans" id="bothTrans" style="display:none;"></div>
