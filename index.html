@@ -18,12 +18,12 @@
     .control-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
     select { flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; }
 
-    /* 按鈕樣式 */
-    .shuffle-btn { background: #8b5cf6; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; gap: 4px; }
-    .shuffle-btn:hover { background: #7c3aed; }
+    .shuffle-btn { background: #8b5cf6; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+    .unfamiliar-toggle-btn { background: #f59e0b; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+    .unfamiliar-toggle-btn.is-active { background: #10b981; }
 
-    /* 3D 翻牌與直接顯示動畫 */
-    .flashcard-wrapper { height: 260px; perspective: 1000px; cursor: pointer; margin-bottom: 20px; }
+    /* 3D 翻牌與卡片樣式 */
+    .flashcard-wrapper { height: 260px; perspective: 1000px; cursor: pointer; margin-bottom: 15px; }
     .flashcard { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
     .flashcard.flipped { transform: rotateY(180deg); }
     .face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; border: 1px solid #e5e7eb; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); padding: 15px; text-align: center; }
@@ -31,7 +31,10 @@
     .word-text { font-size: 2.2rem; font-weight: bold; margin-bottom: 8px; color: #1e1b4b; }
     .trans-text { font-size: 1.8rem; font-weight: bold; color: var(--primary); }
     .both-trans { font-size: 1.5rem; font-weight: 600; color: #059669; margin-top: 10px; background: #ecfdf5; padding: 6px 16px; border-radius: 12px; }
-    .badge { font-size: 0.85rem; background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 20px; margin-bottom: 10px; }
+    
+    .tags-container { display: flex; gap: 6px; margin-bottom: 10px; }
+    .badge { font-size: 0.85rem; background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 20px; }
+    .badge-unfamiliar { background: #fef3c7; color: #d97706; font-weight: bold; }
     .hint-text { font-size: 0.8rem; color: #9ca3af; margin-top: 10px; }
     
     .btn-group { display: flex; gap: 12px; justify-content: center; }
@@ -41,7 +44,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, updateDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBFQA1RF9HK0V9OHwsEuFCT5qmGicFmsck",
@@ -80,30 +83,56 @@
     }
 
     function updateCategories() {
-      const categories = ['ALL', ...new Set(allWords.map(w => w.category))];
+      const categories = ['ALL', 'UNFAMILIAR', ...new Set(allWords.map(w => w.category))];
       const filterSelect = document.getElementById('filterCategory');
-      filterSelect.innerHTML = categories.map(cat => 
-        `<option value="${cat}">${cat === 'ALL' ? '📚 全部分類' : cat}</option>`
-      ).join('');
+      const currentVal = filterSelect.value || 'ALL';
+      
+      filterSelect.innerHTML = categories.map(cat => {
+        if (cat === 'ALL') return `<option value="ALL">📚 全部分類</option>`;
+        if (cat === 'UNFAMILIAR') return `<option value="UNFAMILIAR">🔥 不熟單字庫 (${allWords.filter(w=>w.isUnfamiliar).length})</option>`;
+        return `<option value="${cat}">${cat}</option>`;
+      }).join('');
+
+      filterSelect.value = categories.includes(currentVal) ? currentVal : 'ALL';
     }
 
     window.filterWords = function() {
       const selectedCat = document.getElementById('filterCategory').value;
-      currentWords = selectedCat === 'ALL' ? [...allWords] : allWords.filter(w => w.category === selectedCat);
+      if (selectedCat === 'ALL') {
+        currentWords = [...allWords];
+      } else if (selectedCat === 'UNFAMILIAR') {
+        currentWords = allWords.filter(w => w.isUnfamiliar);
+      } else {
+        currentWords = allWords.filter(w => w.category === selectedCat);
+      }
       currentIndex = 0;
       renderCard();
     }
 
-    // 🎲 隨機洗牌演算法 (Fisher-Yates Shuffle)
     window.shuffleWords = function() {
       if (currentWords.length <= 1) return;
-
       for (let i = currentWords.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [currentWords[i], currentWords[j]] = [currentWords[j], currentWords[i]];
       }
-
       currentIndex = 0;
+      renderCard();
+    }
+
+    window.toggleUnfamiliar = async function() {
+      if (currentWords.length === 0) return;
+      const current = currentWords[currentIndex];
+      const newStatus = !current.isUnfamiliar;
+      
+      // 本地即時更新
+      current.isUnfamiliar = newStatus;
+      const targetInAll = allWords.find(w => w.id === current.id);
+      if (targetInAll) targetInAll.isUnfamiliar = newStatus;
+
+      // 雲端同步
+      await updateDoc(doc(db, "words", current.id), { isUnfamiliar: newStatus });
+      
+      updateCategories();
       renderCard();
     }
 
@@ -114,11 +143,13 @@
 
       if (currentWords.length === 0) {
         document.getElementById('cardWord').textContent = "尚無單字";
-        document.getElementById('cardTrans').textContent = "請點擊右上角前往管理頁新增";
+        document.getElementById('cardTrans').textContent = "這個分類目前是空的喔！";
         document.getElementById('cardCat').textContent = "-";
+        document.getElementById('unfamiliarTag').style.display = "none";
         document.getElementById('bothTrans').style.display = "none";
         document.getElementById('cardHint').style.display = "none";
         document.getElementById('progressText').textContent = "0 / 0";
+        document.getElementById('unfamiliarBtn').style.display = "none";
         return;
       }
 
@@ -127,6 +158,21 @@
       document.getElementById('cardTrans').textContent = current.translation;
       document.getElementById('cardCat').textContent = current.category || '預設';
       document.getElementById('progressText').textContent = `${currentIndex + 1} / ${currentWords.length}`;
+
+      // 不熟標籤與按鈕更新
+      const unfamTag = document.getElementById('unfamiliarTag');
+      const unfamBtn = document.getElementById('unfamiliarBtn');
+      unfamBtn.style.display = "inline-block";
+
+      if (current.isUnfamiliar) {
+        unfamTag.style.display = "inline-block";
+        unfamBtn.textContent = "✅ 移出不熟區";
+        unfamBtn.classList.add('is-active');
+      } else {
+        unfamTag.style.display = "none";
+        unfamBtn.textContent = "🔥 標記為不熟";
+        unfamBtn.classList.remove('is-active');
+      }
 
       const bothTransEl = document.getElementById('bothTrans');
       const hintEl = document.getElementById('cardHint');
@@ -184,8 +230,9 @@
         </select>
       </div>
 
-      <div class="control-row" style="margin-top: 5px;">
-        <button class="shuffle-btn" onclick="shuffleWords()">🎲 隨機打亂順序</button>
+      <div class="control-row">
+        <button class="shuffle-btn" onclick="shuffleWords()">🎲 隨機打亂</button>
+        <button id="unfamiliarBtn" class="unfamiliar-toggle-btn" onclick="toggleUnfamiliar()">🔥 標記為不熟</button>
         <span id="progressText" style="color: #6b7280; font-weight: 600;">0 / 0</span>
       </div>
     </div>
@@ -193,7 +240,10 @@
     <div class="flashcard-wrapper" id="cardWrapper">
       <div class="flashcard" id="card">
         <div class="face face-front">
-          <div class="badge" id="cardCat">-</div>
+          <div class="tags-container">
+            <span class="badge" id="cardCat">-</span>
+            <span class="badge badge-unfamiliar" id="unfamiliarTag" style="display:none;">🔥 不熟單字</span>
+          </div>
           <div class="word-text" id="cardWord">載入中...</div>
           <div class="both-trans" id="bothTrans" style="display:none;"></div>
           <div class="hint-text" id="cardHint">💡 點擊卡片看翻譯</div>
