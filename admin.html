@@ -20,6 +20,7 @@
     button { background: #10b981; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem; }
     button.import-btn { background: #6366f1; }
     
+    .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px; }
     .batch-actions { display: flex; justify-content: space-between; align-items: center; background: #f3f4f6; padding: 10px 15px; border-radius: 8px; margin-top: 10px; margin-bottom: 10px; }
     .batch-actions label { font-size: 0.9rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
     .btn-danger { background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
@@ -27,6 +28,8 @@
     .word-list { list-style: none; margin-top: 10px; }
     .word-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
     .word-content { flex: 1; }
+    .badge-unfamiliar { background: #fef3c7; color: #d97706; font-size:0.75rem; padding: 2px 6px; border-radius: 8px; margin-left: 4px; font-weight: bold; }
+    .mark-btn { background: #f59e0b; color: white; border: none; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin-right: 4px; }
     .del-btn { background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
     
     .file-hint { font-size: 0.85rem; color: #6b7280; background: #f9fafb; padding: 10px; border-radius: 6px; margin-bottom: 10px; line-height: 1.5; }
@@ -34,7 +37,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBFQA1RF9HK0V9OHwsEuFCT5qmGicFmsck",
@@ -49,7 +52,8 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    let words = [];
+    let allWords = [];
+    let filteredWords = [];
 
     window.addEventListener('DOMContentLoaded', () => {
       loadWords();
@@ -58,23 +62,39 @@
     async function loadWords() {
       const q = query(collection(db, "words"), orderBy("createdAt", "desc"));
       const querySnapshot = await getDocs(q);
-      words = [];
+      allWords = [];
       querySnapshot.forEach((doc) => {
-        words.push({ id: doc.id, ...doc.data() });
+        allWords.push({ id: doc.id, ...doc.data() });
       });
       renderCategories();
-      renderWords();
+      filterListWords();
     }
 
     function renderCategories() {
-      const categories = [...new Set(words.map(w => w.category))];
-      const options = categories.map(c => `<option value="${c}">${c}</option>`).join('') + `<option value="NEW">➕ 建立新分類...</option>`;
+      const categories = [...new Set(allWords.map(w => w.category))];
       
-      document.getElementById('selectCat').innerHTML = options;
-      document.getElementById('importSelectCat').innerHTML = options;
+      const formOptions = categories.map(c => `<option value="${c}">${c}</option>`).join('') + `<option value="NEW">➕ 建立新分類...</option>`;
+      document.getElementById('selectCat').innerHTML = formOptions;
+      document.getElementById('importSelectCat').innerHTML = formOptions;
+
+      const listFilterSelect = document.getElementById('listFilterCat');
+      const currentSelected = listFilterSelect.value || 'ALL';
+      listFilterSelect.innerHTML = `<option value="ALL">📚 所有分類 (${allWords.length})</option>` +
+        `<option value="UNFAMILIAR">🔥 不熟單字 (${allWords.filter(w=>w.isUnfamiliar).length})</option>` +
+        categories.map(c => `<option value="${c}">${c}</option>`).join('');
+      listFilterSelect.value = (categories.includes(currentSelected) || currentSelected === 'UNFAMILIAR') ? currentSelected : 'ALL';
 
       toggleCatInput();
       toggleImportCatInput();
+    }
+
+    window.filterListWords = function() {
+      const selected = document.getElementById('listFilterCat').value;
+      if (selected === 'ALL') filteredWords = allWords;
+      else if (selected === 'UNFAMILIAR') filteredWords = allWords.filter(w => w.isUnfamiliar);
+      else filteredWords = allWords.filter(w => w.category === selected);
+      
+      renderWords();
     }
 
     window.toggleCatInput = function() {
@@ -93,19 +113,21 @@
 
     function renderWords() {
       const list = document.getElementById('wordList');
-      if (words.length === 0) {
-        list.innerHTML = '<li style="color:#9ca3af; text-align:center; padding:15px;">目前還沒有任何單字喔！</li>';
+      if (filteredWords.length === 0) {
+        list.innerHTML = '<li style="color:#9ca3af; text-align:center; padding:15px;">此分類目前沒有單字喔！</li>';
         document.getElementById('selectAllCb').checked = false;
         return;
       }
 
-      list.innerHTML = words.map(w => `
+      list.innerHTML = filteredWords.map(w => `
         <li class="word-item">
           <input type="checkbox" class="word-checkbox" value="${w.id}">
           <div class="word-content">
             <strong style="font-size:1.1rem;">${w.word}</strong> - <span style="color:#4b5563;">${w.translation}</span>
             <span style="font-size:0.8rem; background:#e0e7ff; color:#3730a3; padding:2px 8px; border-radius:10px; margin-left:6px;">${w.category || '預設'}</span>
+            ${w.isUnfamiliar ? '<span class="badge-unfamiliar">🔥 不熟</span>' : ''}
           </div>
+          <button class="mark-btn" onclick="toggleWordUnfamiliar('${w.id}', ${!!w.isUnfamiliar})">${w.isUnfamiliar ? '✅ 移出' : '🔥 不熟'}</button>
           <button class="del-btn" onclick="deleteWord('${w.id}')">刪除</button>
         </li>
       `).join('');
@@ -113,14 +135,17 @@
       document.getElementById('selectAllCb').checked = false;
     }
 
-    // 全選 / 取消全選
+    window.toggleWordUnfamiliar = async function(id, currentStatus) {
+      await updateDoc(doc(db, "words", id), { isUnfamiliar: !currentStatus });
+      await loadWords();
+    }
+
     window.toggleSelectAll = function() {
       const isChecked = document.getElementById('selectAllCb').checked;
       const checkboxes = document.querySelectorAll('.word-checkbox');
       checkboxes.forEach(cb => cb.checked = isChecked);
     }
 
-    // 批量刪除勾選的單字
     window.deleteSelectedWords = async function() {
       const selected = Array.from(document.querySelectorAll('.word-checkbox:checked')).map(cb => cb.value);
       if (selected.length === 0) {
@@ -139,7 +164,6 @@
       }
     }
 
-    // 單一新增提交
     document.getElementById('addForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const word = document.getElementById('inWord').value.trim();
@@ -149,7 +173,7 @@
       let category = selectCat.value === 'NEW' ? inCat.value.trim() : selectCat.value;
 
       await addDoc(collection(db, "words"), {
-        word, translation, category: category || '預設', createdAt: serverTimestamp()
+        word, translation, category: category || '預設', isUnfamiliar: false, createdAt: serverTimestamp()
       });
 
       document.getElementById('inWord').value = '';
@@ -158,7 +182,6 @@
       await loadWords();
     });
 
-    // 📥 批次匯入提交
     document.getElementById('importForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const fileInput = document.getElementById('fileInput');
@@ -188,12 +211,11 @@
         if (word) {
           const newDocRef = doc(collection(db, "words"));
           batch.set(newDocRef, {
-            word, translation, category: category || '預設', createdAt: serverTimestamp()
+            word, translation, category: category || '預設', isUnfamiliar: false, createdAt: serverTimestamp()
           });
           count++;
           batchCounter++;
 
-          // Firestore 限制每組 batch 上限 500 筆，滿 400 筆自動 commit 一次
           if (batchCounter >= 400) {
             await batch.commit();
             batch = writeBatch(db);
@@ -228,7 +250,6 @@
     <a href="index.html" class="nav-btn">🎴 回到複習卡片 →</a>
   </div>
 
-  <!-- 📥 批次匯入單字區塊 -->
   <div class="card-box">
     <h3>📥 批次匯入單字 (.txt / .csv)</h3>
     <div class="file-hint">
@@ -237,9 +258,7 @@
     </div>
     <form id="importForm" class="form-group">
       <div class="input-row">
-        <select id="importSelectCat" onchange="toggleImportCatInput()">
-          <option value="NEW">➕ 建立新分類...</option>
-        </select>
+        <select id="importSelectCat" onchange="toggleImportCatInput()"></select>
         <input type="text" id="importInCat" placeholder="請輸入匯入單字的分類名稱 (例: 多益)">
       </div>
       <input type="file" id="fileInput" accept=".txt,.csv" required style="border: 1px dashed #a5b4fc; padding: 15px; background: #eef2ff;">
@@ -247,7 +266,6 @@
     </form>
   </div>
 
-  <!-- ➕ 單一新增單字 -->
   <div class="card-box">
     <h3>➕ 新增單一單字</h3>
     <form id="addForm" class="form-group">
@@ -257,9 +275,7 @@
       </div>
 
       <div class="input-row">
-        <select id="selectCat" onchange="toggleCatInput()">
-          <option value="NEW">➕ 建立新分類...</option>
-        </select>
+        <select id="selectCat" onchange="toggleCatInput()"></select>
         <input type="text" id="inCat" placeholder="請輸入新分類名稱">
       </div>
 
@@ -267,13 +283,17 @@
     </form>
   </div>
 
-  <!-- 單字列表與批量刪除 -->
   <div class="card-box">
-    <h3>📋 所有單字列表</h3>
+    <div class="list-header">
+      <h3>📋 單字列表</h3>
+      <select id="listFilterCat" onchange="filterListWords()" style="max-width: 220px; font-weight: 600;">
+        <option value="ALL">📚 所有分類</option>
+      </select>
+    </div>
     
     <div class="batch-actions">
       <label>
-        <input type="checkbox" id="selectAllCb" onchange="toggleSelectAll()"> 全選所有單字
+        <input type="checkbox" id="selectAllCb" onchange="toggleSelectAll()"> 全選當前單字
       </label>
       <button class="btn-danger" onclick="deleteSelectedWords()">🗑️ 刪除勾選單字</button>
     </div>
