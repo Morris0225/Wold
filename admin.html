@@ -7,7 +7,7 @@
   <style>
     :root { --primary: #4f46e5; --bg: #f3f4f6; --card-bg: #ffffff; --text: #1f2937; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
-    body { background-color: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; }
+    body { background-color: var(--bg); color: var(--text); padding: 15px; display: flex; justify-content: center; }
     .container { width: 100%; max-width: 600px; }
     
     .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -16,23 +16,29 @@
     .card-box { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 20px; }
     .form-group { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; }
     .input-row { display: flex; gap: 10px; }
-    input, select { flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; }
+    input, select, textarea { flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; }
+    textarea { height: 120px; resize: vertical; font-family: monospace; }
     button { background: #10b981; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1rem; }
     button.import-btn { background: #6366f1; }
     
+    /* 📥 批次模式頁籤切換 */
+    .tab-container { display: flex; gap: 8px; margin-top: 10px; margin-bottom: 10px; border-bottom: 2px solid #e5e7eb; }
+    .tab-btn { background: none; border: none; padding: 8px 14px; font-weight: 600; color: #6b7280; border-bottom: 2px solid transparent; margin-bottom: -2px; border-radius: 0; cursor: pointer; font-size: 0.9rem; }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
     .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px; }
     .batch-actions { display: flex; justify-content: space-between; align-items: center; background: #f3f4f6; padding: 10px 15px; border-radius: 8px; margin-top: 10px; margin-bottom: 10px; }
     .batch-actions label { font-size: 0.9rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
     .btn-danger { background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
     
     .word-list { list-style: none; margin-top: 10px; }
-    .word-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
-    .word-content { flex: 1; }
+    .word-item { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
+    .word-content { flex: 1; word-break: break-all; }
     .badge-unfamiliar { background: #fef3c7; color: #d97706; font-size:0.75rem; padding: 2px 6px; border-radius: 8px; margin-left: 4px; font-weight: bold; }
-    .mark-btn { background: #f59e0b; color: white; border: none; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin-right: 4px; }
+    .mark-btn { background: #f59e0b; color: white; border: none; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
     .del-btn { background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
     
-    .file-hint { font-size: 0.85rem; color: #6b7280; background: #f9fafb; padding: 10px; border-radius: 6px; margin-bottom: 10px; line-height: 1.5; }
+    .file-hint { font-size: 0.85rem; color: #6b7280; background: #f9fafb; padding: 10px; border-radius: 6px; line-height: 1.5; }
   </style>
 
   <script type="module">
@@ -54,6 +60,7 @@
 
     let allWords = [];
     let filteredWords = [];
+    let activeImportMode = 'TEXT'; // 'TEXT' 或 'FILE'
 
     window.addEventListener('DOMContentLoaded', () => {
       loadWords();
@@ -86,6 +93,14 @@
 
       toggleCatInput();
       toggleImportCatInput();
+    }
+
+    window.switchImportTab = function(mode) {
+      activeImportMode = mode;
+      document.getElementById('tabTextBtn').classList.toggle('active', mode === 'TEXT');
+      document.getElementById('tabFileBtn').classList.toggle('active', mode === 'FILE');
+      document.getElementById('textImportArea').style.display = mode === 'TEXT' ? 'block' : 'none';
+      document.getElementById('fileImportArea').style.display = mode === 'FILE' ? 'block' : 'none';
     }
 
     window.filterListWords = function() {
@@ -123,8 +138,8 @@
         <li class="word-item">
           <input type="checkbox" class="word-checkbox" value="${w.id}">
           <div class="word-content">
-            <strong style="font-size:1.1rem;">${w.word}</strong> - <span style="color:#4b5563;">${w.translation}</span>
-            <span style="font-size:0.8rem; background:#e0e7ff; color:#3730a3; padding:2px 8px; border-radius:10px; margin-left:6px;">${w.category || '預設'}</span>
+            <strong style="font-size:1.05rem;">${w.word}</strong> - <span style="color:#4b5563;">${w.translation}</span>
+            <span style="font-size:0.75rem; background:#e0e7ff; color:#3730a3; padding:2px 6px; border-radius:8px; margin-left:4px;">${w.category || '預設'}</span>
             ${w.isUnfamiliar ? '<span class="badge-unfamiliar">🔥 不熟</span>' : ''}
           </div>
           <button class="mark-btn" onclick="toggleWordUnfamiliar('${w.id}', ${!!w.isUnfamiliar})">${w.isUnfamiliar ? '✅ 移出' : '🔥 不熟'}</button>
@@ -164,6 +179,7 @@
       }
     }
 
+    // 單一新增提交
     document.getElementById('addForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const word = document.getElementById('inWord').value.trim();
@@ -182,19 +198,24 @@
       await loadWords();
     });
 
+    // 📥 批次匯入提交（文字框 / 檔案 雙模式）
     document.getElementById('importForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const fileInput = document.getElementById('fileInput');
       const selectCat = document.getElementById('importSelectCat');
       const inCat = document.getElementById('importInCat');
       let category = selectCat.value === 'NEW' ? inCat.value.trim() : selectCat.value;
 
-      if (!fileInput.files.length) return alert('請選擇檔案！');
+      let text = '';
+      if (activeImportMode === 'TEXT') {
+        text = document.getElementById('textAreaInput').value;
+        if (!text.trim()) return alert('請在文字框中貼上或輸入單字！');
+      } else {
+        const fileInput = document.getElementById('fileInput');
+        if (!fileInput.files.length) return alert('請選擇檔案！');
+        text = await fileInput.files[0].text();
+      }
 
-      const file = fileInput.files[0];
-      const text = await file.text();
       const lines = text.split(/\r?\n/);
-
       let batch = writeBatch(db);
       let count = 0;
       let batchCounter = 0;
@@ -229,7 +250,8 @@
       }
 
       alert(`🎉 成功匯入 ${count} 個單字！`);
-      fileInput.value = '';
+      document.getElementById('textAreaInput').value = '';
+      document.getElementById('fileInput').value = '';
       inCat.value = '';
       await loadWords();
     });
@@ -250,19 +272,39 @@
     <a href="index.html" class="nav-btn">🎴 回到複習卡片 →</a>
   </div>
 
+  <!-- 📥 批次匯入單字區塊 (支援頁籤切換) -->
   <div class="card-box">
-    <h3>📥 批次匯入單字 (.txt / .csv)</h3>
+    <h3>📥 批次新增單字</h3>
+    
+    <div class="tab-container">
+      <button class="tab-btn active" id="tabTextBtn" onclick="switchImportTab('TEXT')">✍️ 手動貼上文字框</button>
+      <button class="tab-btn" id="tabFileBtn" onclick="switchImportTab('FILE')">📁 上檔案 (.txt / .csv)</button>
+    </div>
+
     <div class="file-hint">
       💡 格式說明：每行一個單字，英文與中文用<strong>逗號</strong>隔開。<br>
-      例如：<code>Apple, 蘋果</code> 或 <code>Cat, 貓咪</code>
+      例如：<br>
+      <code>apple, 蘋果</code><br>
+      <code>banana, 香蕉</code>
     </div>
+
     <form id="importForm" class="form-group">
       <div class="input-row">
         <select id="importSelectCat" onchange="toggleImportCatInput()"></select>
         <input type="text" id="importInCat" placeholder="請輸入匯入單字的分類名稱 (例: 多益)">
       </div>
-      <input type="file" id="fileInput" accept=".txt,.csv" required style="border: 1px dashed #a5b4fc; padding: 15px; background: #eef2ff;">
-      <button type="submit" class="import-btn">開始批次匯入</button>
+
+      <!-- 文字框模式 -->
+      <div id="textImportArea">
+        <textarea id="textAreaInput" placeholder="請直接貼上多行單字，例如：&#10;apple, 蘋果&#10;cat, 貓咪"></textarea>
+      </div>
+
+      <!-- 檔案模式 -->
+      <div id="fileImportArea" style="display: none;">
+        <input type="file" id="fileInput" accept=".txt,.csv" style="border: 1px dashed #a5b4fc; padding: 15px; background: #eef2ff;">
+      </div>
+
+      <button type="submit" class="import-btn">開始批次新增</button>
     </form>
   </div>
 
@@ -286,7 +328,7 @@
   <div class="card-box">
     <div class="list-header">
       <h3>📋 單字列表</h3>
-      <select id="listFilterCat" onchange="filterListWords()" style="max-width: 220px; font-weight: 600;">
+      <select id="listFilterCat" onchange="filterListWords()" style="max-width: 200px; font-weight: 600;">
         <option value="ALL">📚 所有分類</option>
       </select>
     </div>
